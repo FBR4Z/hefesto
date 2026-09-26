@@ -271,6 +271,99 @@ def hal(ctx: EyeContext, r: float, theta: float):
     return 0.3 + 0.8 * glow, color
 
 
+def tenseigan(ctx: EyeContext, r: float, theta: float):
+    """Blue eye with a white flower around the pupil, which turns while working.
+
+    Elevated (chakra mode) the flower doubles its petals and the whole eye glows.
+    """
+    if r < 0.1:
+        return None
+    if ctx.elevated:
+        petals = 0.44 + 0.1 * math.cos(12 * theta - 6 * ctx.rotation)
+    else:
+        spin = ctx.rotation if not ctx.planning else 0.0
+        petals = 0.46 + 0.14 * math.cos(6 * theta - 6 * spin)
+    if abs(r - petals) < 0.035 or abs(r - 0.72) < 0.03:
+        return None
+    if r < petals:
+        # The flower: pale, almost white.
+        return 0.8 + 0.2 * ctx.elevation, ctx.color.blend(WHITE, 0.55 + 0.3 * ctx.elevation)
+    color = ctx.color.blend(WHITE, 0.2 * ctx.elevation)
+    if r > 0.86:
+        return rim_sheen(ctx, theta), color
+    return 0.55 + 0.3 * r + 0.3 * ctx.elevation, color
+
+
+def jogan(ctx: EyeContext, r: float, theta: float):
+    """Pale blue eye with a lit pupil, a dark ring around it and fine radial striae.
+
+    The striae flow while working; elevated, the pupil grows and rays shoot to the rim.
+    """
+    if ctx.elevated:
+        pupil = 0.22
+    elif ctx.planning:
+        pupil = 0.12
+    else:
+        pupil = 0.16
+    pupil *= 1 + 0.4 * ctx.voice * ctx.speaking
+    if r < pupil:
+        return 1.0, WHITE
+    if r < pupil + 0.07:
+        return None
+    if ctx.elevated and math.cos(8 * theta - 2 * ctx.rotation) > 0.9:
+        return 1.05, ctx.color.blend(WHITE, 0.6)
+    flow = 0.0 if ctx.planning else ctx.rotation
+    if r < 0.84 and math.cos(20 * theta - 2 * flow + 3 * r) > 0.75:
+        return None
+    color = ctx.color.blend(WHITE, 0.25 * (1 - r))
+    if r > 0.86:
+        return rim_sheen(ctx, theta), color
+    return 0.5 + 0.35 * r, color
+
+
+HUMAN_AMBER = Color(205, 150, 60)
+HUMAN_LIMBUS = Color(20, 30, 28)
+
+
+def humana(ctx: EyeContext, r: float, theta: float):
+    """A realistic human iris: dark limbal ring, radial fibres, amber collarette.
+
+    The pupil contracts while working (focus) and dilates when elevated.
+    """
+    if ctx.elevated:
+        pupil = 0.4
+    elif ctx.planning:
+        pupil = 0.28 + 0.02 * math.sin(ctx.elapsed * 0.9)
+    else:
+        pupil = 0.2
+    pupil *= 1 + 0.25 * ctx.voice * ctx.speaking
+    x, y = r * math.cos(theta), r * math.sin(theta)
+    # Light reflected on the cornea.
+    if math.hypot(x + 0.32, y + 0.36) < 0.055:
+        return 1.1, WHITE
+    if r < pupil:
+        return None
+    # Radial fibres: thin light strands that wander a little.
+    strands = math.cos(28 * theta + 3 * math.sin(9 * r + 5 * theta))
+    fibres = math.sin(37 * theta + 4 * r) * math.sin(23 * theta - 7 * r + 1.3)
+    if fibres < -0.8 and 0.5 < r < 0.85:
+        # Crypts: small dark pits in the stroma.
+        return None
+    collarette = pupil + 0.14 + 0.03 * math.sin(14 * theta)
+    color = ctx.color
+    brightness = 0.55 + 0.1 * r
+    if strands > 0.8:
+        color = color.blend(WHITE, 0.15)
+        brightness += 0.15
+    if r < collarette:
+        color = color.blend(HUMAN_AMBER, 0.8)
+        brightness += 0.1
+    if r > 0.86:
+        return 0.55, color.blend(HUMAN_LIMBUS, 0.6)
+    # Stay under the orb's white glow (0.85) so the colors hold.
+    return min(brightness, 0.84), color
+
+
 EYES: dict[str, EyeTheme] = {
     theme.key: theme
     for theme in (
@@ -333,6 +426,36 @@ EYES: dict[str, EyeTheme] = {
             ("planejamento", "execução", "desculpe, dave"),
             hal,
             "lente preta com brilho vermelho que cresce conforme o nível",
+        ),
+        EyeTheme(
+            "tenseigan",
+            "Tenseigan",
+            "#3f8fe8",
+            "#5fb0ff",
+            "#9fd8ff",
+            ("planejamento", "tenseigan", "modo chakra"),
+            tenseigan,
+            "olho azul com flor branca em volta da pupila, que gira na execução",
+        ),
+        EyeTheme(
+            "jogan",
+            "Jōgan",
+            "#6fb6d6",
+            "#8fd6f5",
+            "#c9efff",
+            ("planejamento", "jōgan", "jōgan desperto"),
+            jogan,
+            "olho azul-claro com pupila acesa e estrias que correm na execução",
+        ),
+        EyeTheme(
+            "humana",
+            "Íris humana",
+            "#4f8a63",
+            "#5f9c6c",
+            "#6d9a5a",
+            ("planejamento", "foco", "pupila dilatada"),
+            humana,
+            "íris verde-avelã realista; a pupila contrai no foco e dilata no nível máximo",
         ),
     )
 }

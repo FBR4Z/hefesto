@@ -35,7 +35,10 @@ A Íris é um fork do [Toad](https://github.com/batrachianai/toad), de Will McGu
     - **Byakugan**: olho pálido, veias que saltam e pulsam, 360°;
     - **Modo Sábio**: olho de sapo dourado com pupila horizontal (homenagem ao Toad), faixa laranja;
     - **Olho de Sauron**: fenda de fogo que se abre;
-    - **HAL 9000**: brilho vermelho que cresce.
+    - **HAL 9000**: brilho vermelho que cresce;
+    - **Tenseigan**: flor branca em volta da pupila, que gira, e modo chakra;
+    - **Jōgan**: pupila acesa e estrias que correm, raios no nível máximo;
+    - **Íris humana**: verde-avelã realista; a pupila contrai no foco e dilata no nível máximo.
 
     Prévia em PNG sem abrir a Íris: `uv run --with pillow python tools/preview_orb.py 40 12 --png olhos.png` (opção `--tema rinnegan,hal`). Os olhos ficam em `src/toad/widgets/iris_eyes.py`.
 - **Projetos** — pastas e arquivos de qualquer lugar ligados a um projeto, com descrição e servidores MCP (ex.: ESP-IDF).
@@ -233,7 +236,7 @@ Medido num notebook com RTX 3050 6 GB: transcrição de 7 s de fala em ~0,8 s; g
 
 Além das do Toad, em **Configurações**:
 
-- **Íris** — tema do olho (Arco, Sharingan, Rinnegan, Byakugan, Modo Sábio, Olho de Sauron ou HAL 9000); modos tratados como nível máximo (padrão: bypass, yolo); cores de planejamento, execução, atenção e erro; cores por agente; palavras que identificam modos de planejamento; mostrar ou não o uso da assinatura; agentes mostrados na tela inicial.
+- **Íris** — tema do olho (Arco, Sharingan, Rinnegan, Byakugan, Modo Sábio, Olho de Sauron, HAL 9000, Tenseigan, Jōgan ou Íris humana); modos tratados como nível máximo (padrão: bypass, yolo); cores de planejamento, execução, atenção e erro; cores por agente; palavras que identificam modos de planejamento; mostrar ou não o uso da assinatura; agentes mostrados na tela inicial.
 - **Voz** — modo, seu nome, frases por evento, motor, voz, velocidade, modelo do ditado, palavra de ativação, só CPU, envio automático do ditado.
 
 O arquivo fica em `%USERPROFILE%\.config\toad\toad.json`.
