@@ -505,5 +505,10 @@ def about() -> None:
     print(about.render(app))
 
 
+from toad.cli_hefesto import register as _register_hefesto  # noqa: E402
+
+_register_hefesto(main, projeto)
+
+
 if __name__ == "__main__":
     main()

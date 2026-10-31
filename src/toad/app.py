@@ -680,6 +680,10 @@ class ToadApp(App, inherit_bindings=False):
         await self.switch_mode(session_details.mode_name)
         return session_details
 
+    async def on_unmount(self) -> None:
+        if (monitor := getattr(self, "hefesto_monitor", None)) is not None:
+            await monitor.stop()
+
     async def on_mount(self) -> None:
         self.capture_event("toad-run")
         self.anon_id  # Created on frst reference
@@ -693,6 +697,9 @@ class ToadApp(App, inherit_bindings=False):
         self.set_process_title()
         self.call_later(self.iris_voice.sync)
         self.update_show_sessions()
+        from toad.hefesto_robot import install
+
+        install(self)
 
     @work(thread=True, exit_on_error=False)
     def set_process_title(self) -> None:
@@ -774,6 +781,8 @@ class ToadApp(App, inherit_bindings=False):
         if hasattr(self, "iris_voice"):
             await self.iris_voice.farewell()
             await self.iris_voice.stop()
+        if (monitor := getattr(self, "hefesto_monitor", None)) is not None:
+            await monitor.stop()
 
         async def save_settings_and_exit():
             await self.save_settings()

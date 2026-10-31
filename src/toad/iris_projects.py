@@ -39,6 +39,8 @@ class Project:
     """MCP servers in ACP format (`name`, `command`, `args`, `env` or `type`, `url`)."""
     agente: str = ""
     """Default agent for `iris projeto abrir` (e.g. claude, codex, gemini)."""
+    controladores: list[str] = field(default_factory=list)
+    """Hefesto: robot controllers of this cell (names from hefesto-controladores.json)."""
 
     @property
     def main_folder(self) -> Path | None:
@@ -167,6 +169,7 @@ def load_projects(path: Path | None = None) -> list[Project]:
                 arquivos=[str(file) for file in item.get("arquivos", [])],
                 mcp=[server for server in item.get("mcp", []) if isinstance(server, dict)],
                 agente=str(item.get("agente", "")),
+                controladores=[str(name) for name in item.get("controladores", [])],
             )
         )
     return projects

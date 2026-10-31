@@ -861,14 +861,13 @@ class Conversation(containers.Vertical):
         if self.agent is not None:
             stop_reason: str | None = None
             self.busy_count += 1
-            if (
-                self.iris_project is not None
-                and not self._iris_project_told
-                and not prompt.startswith("/")
-            ):
+            if not self._iris_project_told and not prompt.startswith("/"):
                 # Slash commands must stay first in the prompt, so the context waits.
-                self._iris_project_told = True
-                prompt = f"{self.iris_project.context_prompt()}\n\n{prompt}"
+                from toad.hefesto_robot import session_context
+
+                if context := session_context(self.app, self.iris_project):
+                    self._iris_project_told = True
+                    prompt = f"{context}\n\n{prompt}"
             try:
                 self.turn = "agent"
                 stop_reason = await self.agent.send_prompt(prompt)
@@ -1714,17 +1713,17 @@ class Conversation(containers.Vertical):
                 """Start the agent after refreshing the UI."""
                 assert self._agent_data is not None
                 from toad.acp.agent import Agent
+                from toad.hefesto_robot import focus_project, session_mcp_servers
+
+                focus_project(self.app, self.iris_project)
 
                 self.agent = Agent(
                     self.project_path,
                     self._agent_data,
                     self._agent_session_id,
                     self._session_pk,
-                    mcp_servers=(
-                        self.iris_project.mcp_servers()
-                        if self.iris_project is not None
-                        else None
-                    ),
+                    # Hefesto: plus one MCP server per robot controller.
+                    mcp_servers=session_mcp_servers(self.app, self.iris_project),
                 )
                 await self.agent.start(self)
                 self.post_message(

@@ -27,6 +27,7 @@ from toad.widgets.conversation import Conversation
 from toad.widgets.project_directory_tree import ProjectDirectoryTree
 from toad.widgets.side_bar import SideBar
 from toad.widgets.iris_orb import IrisOrb
+from toad.widgets.hefesto_panel import RobotPanel
 
 
 class ModeProvider(Provider):
@@ -141,6 +142,7 @@ class MainScreen(Screen, can_focus=False):
         with containers.Center():
             yield SideBar(
                 SideBar.Panel("Hefesto", IrisOrb()),
+                SideBar.Panel("Robôs", RobotPanel()),
                 SideBar.Panel("Plano", Plan([])),
                 SideBar.Panel(
                     "Projeto",

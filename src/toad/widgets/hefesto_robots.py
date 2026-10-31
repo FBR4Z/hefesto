@@ -9,7 +9,8 @@ stack light and, for the arm themes, the joint angles.
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
+import time
+from dataclasses import dataclass, field, replace
 from typing import Callable, Literal
 
 from textual.color import Color
@@ -49,9 +50,14 @@ class RobotStatus:
     joints: tuple[float, ...] | None = None
     """Joint angles in degrees (axes 1-6)."""
     events: list[tuple[float, str]] = field(default_factory=list)
-    """(monotonic time, severity) of recent controller events: info, warning, error."""
+    """(time.monotonic(), severity) of recent controller events: info, warning, error."""
     error: str = ""
     """Why the HMI can't reach the controller, if it can't."""
+    robotware: str = ""
+    detected_virtual: bool | None = None
+    """What the controller says about itself (the registry's `real` is what counts)."""
+    log: list[str] = field(default_factory=list)
+    """Recent event log lines ("10012 Safety guard stop state")."""
 
     @property
     def stopped_hard(self) -> bool:
@@ -71,6 +77,8 @@ class RobotContext:
     speaking: bool
     listening: bool
     robot: RobotStatus | None
+    robots: list[RobotStatus] = field(default_factory=list)
+    """Every monitored controller (the combined theme shows one light each)."""
 
 
 def phase_of(failed: bool, asking: bool, busy: bool, planning: bool) -> Phase:
@@ -150,8 +158,9 @@ def andon_light(context: RobotContext) -> tuple[str | None, bool, bool]:
     """
     robot = context.robot
     if robot is not None and robot.connected:
+        now = time.monotonic()
         recent_error = any(
-            severity == "error" and context.elapsed - when < 10 for when, severity in robot.events
+            severity == "error" and now - when < 10 for when, severity in robot.events
         )
         if robot.stopped_hard or recent_error:
             return "vermelho", True, True
@@ -309,7 +318,15 @@ def theme_andon(canvas: Canvas, context: RobotContext) -> None:
 
 def theme_combined(canvas: Canvas, context: RobotContext) -> None:
     draw_arm(canvas, context, base_x=24)
-    draw_tower(canvas, context, 66, 4, 6, 4, rays=False)
+    robots = context.robots[:3]
+    if len(robots) <= 1:
+        draw_tower(canvas, context, 66, 4, 6, 4, rays=False)
+        return
+    # One small tower per controller (up to three), the focused one first.
+    width = 4 if len(robots) == 2 else 3
+    for index, robot in enumerate(robots):
+        cx = 71 - (len(robots) - 1 - index) * (width + 2) - width / 2
+        draw_tower(canvas, replace(context, robot=robot), cx, 4, width, 4, rays=False)
 
 
 def theme_flange(canvas: Canvas, context: RobotContext) -> None:
@@ -361,8 +378,9 @@ def theme_radar(canvas: Canvas, context: RobotContext) -> None:
     # Blips: controller events (fading over 30 s), placed by their time.
     robot = context.robot
     events = robot.events if robot is not None else []
+    now = time.monotonic()
     for when, severity in events[-8:]:
-        age = context.elapsed - when
+        age = now - when
         if age > 30:
             continue
         a = (when * 2.399) % TAU

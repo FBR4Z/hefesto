@@ -549,8 +549,12 @@ class IrisOrb(Widget):
                     colors[cy][cx] = color
 
         state = self._state
+        robots: list = []
         try:
             robot = getattr(self.app, "hefesto_robot_status", None)
+            if (monitor := getattr(self.app, "hefesto_monitor", None)) is not None:
+                robots = [robot] if robot is not None else []
+                robots += [s for s in monitor.statuses.values() if s is not robot]
         except Exception:  # not mounted (previews, tests)
             robot = None
         context = RobotContext(
@@ -563,6 +567,7 @@ class IrisOrb(Widget):
             speaking=state.speaking,
             listening=state.listening,
             robot=robot,
+            robots=robots,
         )
         theme.draw(Canvas(plot, dots_w, dots_h), context)
         return self._to_text(bits, glow, colors)

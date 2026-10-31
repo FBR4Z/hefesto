@@ -67,7 +67,7 @@ async def test_conversation_layout_in_portuguese():
     async with app.run_test(size=SIZE) as pilot:
         await start_conversation(pilot)
         titles = [c.title for c in app.screen.query("SideBarCollapsible")]
-        assert titles == ["Hefesto", "Plano", "Projeto"]
+        assert titles == ["Hefesto", "Robôs", "Plano", "Projeto"]
         assert app.settings.get("ui.prompt_message", str) == "Como posso ajudar hoje?"
         # "Enviar" only shows once the prompt has focus.
         assert await wait_until(
