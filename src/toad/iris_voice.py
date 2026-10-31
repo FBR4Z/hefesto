@@ -272,7 +272,9 @@ class IrisVoice:
         if self._get("somente_cpu", False):
             command.append("--cpu")
         if dictation and self._get("ativacao", False):
-            command.append("--wake")
+            from toad import WAKE_NAME
+
+            command += ["--wake", "--wake-word", WAKE_NAME.lower()]
         return command
 
     # ------------------------------------------------------------------ process
@@ -467,7 +469,9 @@ class IrisVoice:
     @staticmethod
     def dictation_hint(conversation: Any) -> str:
         """Words Whisper should expect: the agents and the project's file names."""
-        hint = "Íris, Claude, Codex, Gemini"
+        from toad import WAKE_NAME
+
+        hint = f"{WAKE_NAME}, Claude, Codex, Gemini"
         if conversation is not None:
             try:
                 names = sorted(path.name for path in conversation.project_path.iterdir())
@@ -523,6 +527,7 @@ class IrisVoice:
         """
         if not text:
             return
+        from toad import TITLE, WAKE_NAME
         from toad.iris_commands import parse_command, strip_wake_word
 
         if wake:
@@ -531,14 +536,14 @@ class IrisVoice:
                 log(f"iris-voz: alarme falso da palavra de ativação: {text!r}")
                 # Say what was heard: a silent drop looks like dictation is broken.
                 self.app.notify(
-                    f"Ouvi “{text}”, mas não parecia um pedido para a Íris. "
-                    "Comece com “Íris, …” ou use o F9.",
+                    f"Ouvi “{text}”, mas não parecia um pedido para mim. "
+                    f"Comece com “{WAKE_NAME}, …” ou use o F9.",
                     title="Voz",
                     timeout=5,
                 )
                 return
             # Written the way the command parser expects ("É, Ísis, …" -> "Íris, …").
-            text = f"Íris, {rest}" if rest else "Íris"
+            text = f"{WAKE_NAME}, {rest}" if rest else WAKE_NAME
             if not self._get("comandos", True):
                 text = rest
                 if not text:
@@ -554,7 +559,7 @@ class IrisVoice:
                 if not wake:  # with the wake word, "Íris, <text>" is how you dictate
                     self.app.notify(
                         "Não reconheci o comando; o texto foi para o campo de digitação.",
-                        title="Íris",
+                        title=TITLE,
                     )
         if target is None:
             self.app.notify("Abra uma conversa para ditar.", title="Voz")
@@ -570,12 +575,14 @@ class IrisVoice:
     async def _run_command(self, command: Any, target: Any) -> None:
         from toad.iris_commands import run_command
 
-        self.app.notify(f"Comando: {command.name.replace('_', ' ')}", title="Íris", timeout=2)
+        from toad import TITLE
+
+        self.app.notify(f"Comando: {command.name.replace('_', ' ')}", title=TITLE, timeout=2)
         if reply := await run_command(self.app, command, target):
             if self.announces or self.reads_responses:
                 self.say(reply)
             else:  # dictation-only mode has no speech: show it instead
-                self.app.notify(reply, title="Íris")
+                self.app.notify(reply, title=TITLE)
 
 
 class _Blank(dict):

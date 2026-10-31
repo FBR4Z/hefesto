@@ -17,7 +17,9 @@ if TYPE_CHECKING:
     from toad.widgets.conversation import Conversation
 
 # Whisper spells the name a few ways.
-WAKE_WORDS = ("iris", "ires", "iriz", "eris", "irish", "isis", "iiris")
+from toad import WAKE_NAME, WAKE_SPELLINGS
+
+WAKE_WORDS = WAKE_SPELLINGS
 
 AGENTS = {
     "claude": "claude.com",
@@ -55,7 +57,12 @@ def is_wake_word(word: str, loose: bool = False) -> bool:
         return True
     from difflib import SequenceMatcher
 
-    return loose and 3 <= len(word) <= 6 and SequenceMatcher(None, word, "iris").ratio() >= 0.75
+    name = normalize(WAKE_NAME)
+    return (
+        loose
+        and len(name) - 2 <= len(word) <= len(name) + 2
+        and SequenceMatcher(None, word, name).ratio() >= 0.75
+    )
 
 
 def strip_wake_word(text: str, loose: bool = False) -> str | None:
@@ -101,7 +108,7 @@ PATTERNS: list[tuple[str, str]] = [
 ]
 
 HELP_TEXT = (
-    "Diga Íris e um comando: modo planejamento, modo execução, abrir o Claude, "
+    f"Diga {WAKE_NAME} e um comando: modo planejamento, modo execução, abrir o Claude, "
     "o Codex ou o Gemini, nova sessão, próxima sessão, sessão anterior, fechar sessão, "
     "quais são os meus projetos, abrir o projeto NOME, criar um projeto chamado NOME, "
     "em que projeto estou, "
@@ -157,7 +164,7 @@ async def run_project_command(
         match command.name:
             case "listar_projetos":
                 if not projects:
-                    return "Você ainda não tem projetos. Diga: Íris, cria um projeto chamado, e o nome."
+                    return f"Você ainda não tem projetos. Diga: {WAKE_NAME}, cria um projeto chamado, e o nome."
                 app.notify(
                     "\n".join(
                         f"• {project.nome} — {project.main_folder or 'sem pasta'}"
