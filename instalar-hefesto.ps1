@@ -1,20 +1,22 @@
 ﻿<#
 .SYNOPSIS
-    Instala a Íris (e, opcionalmente, os agentes e a voz local) no Windows.
+    Instala o Hefesto (e, opcionalmente, os agentes, a voz local e as ferramentas dos robôs ABB) no Windows.
 
 .DESCRIPTION
     - Instala o que faltar: uv, Node.js e git (via winget).
-    - Instala a Íris como comando global `iris`.
+    - Instala o Hefesto como comando global `hefesto`.
+    - Opcional (-Robos): baixa e compila o abbctl e o abbctl-mcp em ~\abbctl (precisa do
+      RobotStudio 2026+, que traz as DLLs do PC SDK; a ABB não deixa redistribuí-las).
     - Instala os agentes escolhidos (Claude Code, Codex CLI, Gemini CLI) e seus adaptadores ACP.
     - Detecta GPU NVIDIA e memória e instala a voz na versão adequada:
         com GPU  -> Kokoro + Whisper large-v3-turbo na GPU
         sem GPU  -> Piper + Whisper small no processador (sem as bibliotecas CUDA, ~3 GB a menos)
-    - Grava a configuração de voz escolhida em ~/.config/toad/toad.json.
+    - Grava a configuração de voz escolhida em ~/.config/hefesto/toad.json.
 
     Pode rodar de dentro do repositório clonado:
-        powershell -ExecutionPolicy Bypass -File .\instalar-iris.ps1
+        powershell -ExecutionPolicy Bypass -File .\instalar-hefesto.ps1
     ou direto da internet (aceita os mesmos parâmetros depois do bloco):
-        & ([scriptblock]::Create((irm https://raw.githubusercontent.com/FBR4Z/iris/main/instalar-iris.ps1)))
+        & ([scriptblock]::Create((irm https://raw.githubusercontent.com/FBR4Z/hefesto/main/instalar-hefesto.ps1)))
 
 .PARAMETER Agentes
     Lista separada por vírgula: claude, codex, gemini. Vazio pergunta.
@@ -27,27 +29,31 @@
     da release "modelos-voz-v1" do GitHub da Íris (e só em último caso das fontes originais).
 
 .PARAMETER Pasta
-    Onde clonar a Íris se o script não estiver dentro do repositório. Padrão: ~\iris
+    Onde clonar o Hefesto se o script não estiver dentro do repositório. Padrão: ~\hefesto
+
+.PARAMETER Robos
+    Baixa e compila o abbctl e o abbctl-mcp (ferramentas dos robôs ABB) em ~\abbctl.
 
 .PARAMETER Simular
     Mostra o que seria feito, sem instalar nada.
 
 .EXAMPLE
-    .\instalar-iris.ps1
-    .\instalar-iris.ps1 -Agentes claude,gemini -Voz avisos
-    .\instalar-iris.ps1 -Simular
-    .\instalar-iris.ps1 -Voz avisos -Modelos E:\modelos-voz-v1
+    .\instalar-hefesto.ps1
+    .\instalar-hefesto.ps1 -Agentes claude,gemini -Voz avisos
+    .\instalar-hefesto.ps1 -Simular
+    .\instalar-hefesto.ps1 -Voz avisos -Robos -Modelos E:\modelos-voz-v1
 #>
 param(
     [string]$Agentes = "",
     [string]$Voz = "",
     [string]$Modelos = "",
-    [string]$Pasta = (Join-Path $HOME "iris"),
+    [string]$Pasta = (Join-Path $HOME "hefesto"),
+    [switch]$Robos,
     [switch]$Simular
 )
 
 $ErrorActionPreference = "Stop"
-$RepoUrl = "https://github.com/FBR4Z/iris.git"
+$RepoUrl = "https://github.com/FBR4Z/hefesto.git"
 
 function Titulo([string]$texto) { Write-Host "`n== $texto ==" -ForegroundColor Cyan }
 function Info([string]$texto) { Write-Host "   $texto" }
@@ -114,7 +120,7 @@ else { Winget "Git.Git" "git" }
 
 # ---------------------------------------------------------------------- repositório
 
-Titulo "Íris"
+Titulo "Hefesto"
 $Repo = $null
 if ($PSScriptRoot -and (Test-Path (Join-Path $PSScriptRoot "voz\pyproject.toml"))) {
     $Repo = $PSScriptRoot
@@ -126,15 +132,15 @@ elseif (Test-Path (Join-Path $Pasta "voz\pyproject.toml")) {
 }
 else {
     $Repo = $Pasta
-    Executar "Baixando a Íris em $Repo" { git clone $RepoUrl $Repo }
+    Executar "Baixando o Hefesto em $Repo" { git clone $RepoUrl $Repo }
 }
 
-if (Get-Process -Name "iris", "iris-voz" -ErrorAction SilentlyContinue) {
-    $mensagem = "A Íris está aberta. Feche-a antes de instalar (o Windows não deixa substituir programas em uso)."
+if (Get-Process -Name "hefesto", "iris-voz" -ErrorAction SilentlyContinue) {
+    $mensagem = "O Hefesto (ou a voz) está aberto. Feche antes de instalar (o Windows não deixa substituir programas em uso)."
     if ($Simular) { Aviso $mensagem } else { throw $mensagem }
 }
 
-Executar "Instalando o comando iris" { uv tool install --editable $Repo --force }
+Executar "Instalando o comando hefesto" { uv tool install --editable $Repo --force }
 Executar "Colocando ~\.local\bin no PATH" { uv tool update-shell }
 Atualizar-Path
 
@@ -204,7 +210,7 @@ if ($Voz -ne "pular" -and $Voz -ne "desligada") {
 }
 
 if ($Voz -ne "pular") {
-    $config = Join-Path $HOME ".config\toad\toad.json"
+    $config = Join-Path $HOME ".config\hefesto\toad.json"
     $dados = @{}
     if (Test-Path $config) {
         $json = Get-Content $config -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -227,6 +233,35 @@ if ($Voz -ne "pular") {
     }
 }
 
+# ------------------------------------------------------------------------- robôs
+
+if ($Robos) {
+    Titulo "Ferramentas dos robôs ABB"
+    # Compiladas aqui: as DLLs do PC SDK vêm do RobotStudio desta máquina e a licença
+    # da ABB não deixa redistribuí-las junto com o abbctl.
+    $rs = Get-ChildItem "C:\Program Files (x86)\ABB" -Directory -Filter "RobotStudio 20*" -ErrorAction SilentlyContinue
+    if ($rs) { Ok "RobotStudio: $($rs.Name -join ', ')" }
+    else { Aviso "RobotStudio não encontrado: instale o RobotStudio 2026+ (traz as DLLs do PC SDK) e rode de novo com -Robos." }
+    if (-not (Existe "dotnet")) {
+        Executar "Instalando o .NET SDK (para compilar o abbctl)" {
+            winget install --id Microsoft.DotNet.SDK.10 -e --silent --accept-package-agreements --accept-source-agreements
+        }
+        Atualizar-Path
+    }
+    $abbctl = Join-Path $HOME "abbctl"
+    if (Test-Path (Join-Path $abbctl ".git")) {
+        Executar "Atualizando o abbctl em $abbctl" { git -C $abbctl pull --ff-only }
+    }
+    else {
+        Executar "Baixando o abbctl em $abbctl" { git clone https://github.com/FBR4Z/abbctl.git $abbctl }
+    }
+    Executar "Compilando o abbctl" { dotnet build (Join-Path $abbctl "src\abbctl\abbctl.csproj") -c Release }
+    Executar "Compilando o abbctl-mcp (precisa do RobotStudio 2026+)" {
+        dotnet build (Join-Path $abbctl "src\abbctl-mcp\abbctl-mcp.csproj") -c Release
+    }
+    Info "Depois: hefesto robo procurar  (e hefesto robo adicionar ...)"
+}
+
 # ---------------------------------------------------------------------------- fim
 
 Titulo "Pronto"
@@ -234,5 +269,5 @@ Info "Reabra o terminal e, se ainda não fez login nos agentes, rode uma vez:"
 foreach ($agente in $lista) { Info "   $agente" }
 Info ""
 Info "Depois, dentro da pasta de um projeto:"
-Info "   iris"
+Info "   hefesto"
 if ($Simular) { Aviso "Isto foi uma simulação: nada foi instalado." }
