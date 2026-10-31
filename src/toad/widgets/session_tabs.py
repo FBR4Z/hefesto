@@ -136,14 +136,22 @@ class SessionsTabs(Widget):
                 self.scroll_to_center(current_label, animate=False)
 
     def render_session_label(self, session: SessionDetails) -> Content:
+        title = session.title
+        if not title and self.app.session_tracker.session_count > 1:
+            # Íris: no "New Session" placeholder; with several tabs, name the agent.
+            title = session.subtitle
         match session.state:
             case "asking":
-                return Content.assemble(
-                    ("❯ ", "not dim $text-secondary"), session.title
-                )
+                return Content.assemble(("❯ ", "not dim $text-secondary"), title)
             case "busy":
-                return Content(f"⌛ {session.title}")
-        return Content(session.title)
+                return Content(f"⌛ {title}".rstrip())
+        return Content(title)
+
+    def _refresh_labels(self) -> None:
+        """Re-render every tab (labels depend on how many sessions are open)."""
+        for session in self.app.session_tracker.ordered_sessions:
+            if label := self.query_one_optional(f"#{session.mode_name}", SessionLabel):
+                label.update(self.render_session_label(session))
 
     def compose(self) -> ComposeResult:
         with containers.HorizontalGroup(id="title-container"):
@@ -162,6 +170,7 @@ class SessionsTabs(Widget):
         mode, details = update
         if details is None:
             await self.query(f"#{mode}").remove()
+            self._refresh_labels()
         else:
             if tab_label := self.query_one_optional(f"#{mode}", SessionLabel):
                 tab_label.update(self.render_session_label(details))
@@ -176,5 +185,6 @@ class SessionsTabs(Widget):
                         ),
                     )
                 )
+                self._refresh_labels()
         await asyncio.sleep(0.05)
         self.call_after_refresh(self.update_underline, self.current_session)

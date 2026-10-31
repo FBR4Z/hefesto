@@ -46,7 +46,7 @@ class SessionTracker:
         self._session_index += 1
         mode_name = f"session-{self._session_index}"
         session_meta = SessionDetails(
-            index=self._session_index, mode_name=mode_name, title="New Session"
+            index=self._session_index, mode_name=mode_name
         )
         self.sessions[mode_name] = session_meta
         return session_meta
