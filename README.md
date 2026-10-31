@@ -95,7 +95,16 @@ A voz roda num serviço separado, `iris-voz` (Python 3.13, por causa das bibliot
 uv tool install --editable voz --python 3.13 --excludes voz/excludes-gpu.txt
 ```
 
-Na primeira execução ela baixa os modelos (~0,4 GB de voz em `%LOCALAPPDATA%\iris-voz\models`, mais o Whisper, ~1,6 GB). Depois ative em **Configurações → Voz**.
+Depois baixe os modelos (o instalador automático já faz isso) e ative em **Configurações → Voz**:
+
+```powershell
+iris-voz baixar          # os desta máquina: GPU → Kokoro + Whisper turbo (~1,9 GB); sem GPU → Piper + Whisper small (~0,6 GB)
+iris-voz baixar --cpu    # força a versão do processador
+```
+
+Os modelos ficam em `%LOCALAPPDATA%\iris-voz\models` e vêm da release [`modelos-voz-v1`](https://github.com/FBR4Z/iris/releases/tag/modelos-voz-v1) deste repositório. Só se ela falhar o `iris-voz` tenta as fontes originais (HuggingFace, alphacephei), que costumam ser bloqueadas em redes corporativas.
+
+**Sem internet:** baixe os arquivos da release (ou rode `iris-voz baixar --todos` e depois `iris-voz empacotar E:\modelos-voz-v1` numa máquina com internet), leve a pasta num pendrive e instale com `.\instalar-iris.ps1 -Modelos E:\modelos-voz-v1` (ou `iris-voz baixar --de E:\modelos-voz-v1`). A variável `IRIS_VOZ_MODELOS_LOCAL` faz o mesmo para o serviço já instalado.
 
 ## Uso
 

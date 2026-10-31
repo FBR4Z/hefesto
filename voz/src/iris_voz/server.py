@@ -48,6 +48,21 @@ MIC_RATE = 16_000
 LEVEL_INTERVAL = 0.05
 DEFAULT_MODELS = Path(os.environ.get("LOCALAPPDATA", Path.home())) / "iris-voz" / "models"
 
+RELEASE_URL = os.environ.get(
+    "IRIS_VOZ_MODELOS_URL", "https://github.com/FBR4Z/iris/releases/download/modelos-voz-v1"
+)
+"""Mirror of every model in the Íris repository's releases (folders as .zip)."""
+
+LOCAL_MODELS = os.environ.get("IRIS_VOZ_MODELOS_LOCAL", "")
+"""Optional folder (pendrive, network share) holding the same files as the release."""
+
+WHISPER_MODELS = {
+    "base": "faster-whisper-base",
+    "small": "faster-whisper-small",
+    "large-v3-turbo": "faster-whisper-large-v3-turbo",
+}
+"""Whisper names → model folders (the release copy avoids the HuggingFace download)."""
+
 MODEL_URLS = {
     "kokoro-v1.0.onnx": "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx",
     "voices-v1.0.bin": "https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin",
@@ -55,14 +70,30 @@ MODEL_URLS = {
     "pt_BR-faber-medium.onnx.json": "https://huggingface.co/rhasspy/piper-voices/resolve/main/pt/pt_BR/faber/medium/pt_BR-faber-medium.onnx.json",
     "vosk-model-small-pt-0.3": "https://alphacephei.com/vosk/models/vosk-model-small-pt-0.3.zip",
 }
-"""Voice model files, fetched on first use. (Whisper models are fetched by faster-whisper.)"""
+"""Original sources, tried only when the local folder and the release fail."""
+
+FOLDER_MODELS = {"vosk-model-small-pt-0.3", *WHISPER_MODELS.values()}
+"""Models that are folders (shipped zipped, holding a folder with the model's name)."""
 
 WAKE_MODEL = "vosk-model-small-pt-0.3"
 WAKE_WORD = "íris"
 
 
+def model_sources(name: str) -> list[str]:
+    """Where to look for a model, in order: local folder, the Íris release, the original."""
+    asset = f"{name}.zip" if name in FOLDER_MODELS else name
+    sources = []
+    if LOCAL_MODELS:
+        sources.append(str(Path(LOCAL_MODELS) / asset))
+    sources.append(f"{RELEASE_URL}/{asset}")
+    if name in MODEL_URLS:
+        sources.append(MODEL_URLS[name])
+    return sources
+
+
 def ensure_models(models: Path, names: list[str]) -> None:
-    """Download any missing model files (or zipped model folders) into `models`."""
+    """Fetch any missing model files (or zipped model folders) into `models`."""
+    import shutil
     import urllib.request
 
     models.mkdir(parents=True, exist_ok=True)
@@ -70,12 +101,25 @@ def ensure_models(models: Path, names: list[str]) -> None:
         target = models / name
         if target.exists():
             continue
-        log(f"baixando {name}…")
-        url = MODEL_URLS[name]
-        partial = target.with_suffix(target.suffix + ".part")
-        urllib.request.urlretrieve(url, partial)
-        if url.endswith(".zip"):
-            # The zip holds a folder with the model's name.
+        partial = models / f"{name}.part"
+        errors = []
+        for source in model_sources(name):
+            try:
+                if "://" in source:
+                    log(f"baixando {name} de {source}…")
+                    urllib.request.urlretrieve(source, partial)
+                elif Path(source).exists():
+                    log(f"copiando {name} de {source}…")
+                    shutil.copyfile(source, partial)
+                else:
+                    continue
+                break
+            except Exception as error:
+                errors.append(f"{source}: {error}")
+                partial.unlink(missing_ok=True)
+        else:
+            raise RuntimeError(f"não consegui obter {name}: " + "; ".join(errors))
+        if name in FOLDER_MODELS:
             with zipfile.ZipFile(partial) as archive:
                 archive.extractall(models)
             partial.unlink()
@@ -296,10 +340,11 @@ class Listener:
     WAKE_PAUSE_SECONDS = 3.0
     """After the wake word alone ("Íris…"), how long to wait for the rest."""
 
-    def __init__(self, model: str, cuda: bool, microphone: Microphone):
+    def __init__(self, model: str, cuda: bool, microphone: Microphone, models: Path = DEFAULT_MODELS):
         if model == "auto":
             model = "large-v3-turbo" if cuda else "small"
         self.model_name = model
+        self.models = models
         self.device = "cuda" if cuda else "cpu"
         self.compute = "float16" if cuda else "int8"
         self.microphone = microphone
@@ -319,7 +364,15 @@ class Listener:
     def load(self) -> None:
         from faster_whisper import WhisperModel
 
-        self._model = WhisperModel(self.model_name, device=self.device, compute_type=self.compute)
+        model = self.model_name
+        if folder := WHISPER_MODELS.get(model):
+            try:
+                ensure_models(self.models, [folder])
+                model = str(self.models / folder)
+            except Exception as error:
+                # Last resort: let faster-whisper try HuggingFace itself.
+                log(f"{error}; tentando o HuggingFace")
+        self._model = WhisperModel(model, device=self.device, compute_type=self.compute)
         self._model.transcribe(np.zeros(MIC_RATE, dtype=np.float32), language="pt")
 
     def cancel(self) -> None:
@@ -543,9 +596,53 @@ class WakeWatcher:
 # ------------------------------------------------------------------------- main
 
 
+def machine_models(cuda: bool, stt: str, everything: bool) -> list[str]:
+    """Models this machine uses: Kokoro + Whisper turbo on the GPU, Piper + small on the CPU."""
+    gpu = ["kokoro-v1.0.onnx", "voices-v1.0.bin", WHISPER_MODELS["large-v3-turbo"]]
+    cpu = ["pt_BR-faber-medium.onnx", "pt_BR-faber-medium.onnx.json", WHISPER_MODELS["small"]]
+    if everything:
+        return [*gpu, *cpu, WHISPER_MODELS["base"], WAKE_MODEL]
+    names = gpu if cuda else cpu
+    if stt in WHISPER_MODELS and WHISPER_MODELS[stt] not in names:
+        names.append(WHISPER_MODELS[stt])
+    return [*names, WAKE_MODEL]
+
+
+def package_models(models: Path, destination: Path) -> None:
+    """Copy the downloaded models to `destination` as release assets (folders zipped)."""
+    import shutil
+
+    destination.mkdir(parents=True, exist_ok=True)
+    for name in machine_models(False, "", True):
+        source = models / name
+        if not source.exists():
+            log(f"faltando {name} (rode 'iris-voz baixar --todos' antes)")
+            continue
+        if name in FOLDER_MODELS:
+            target = destination / f"{name}.zip"
+            # Stored, not deflated: the weights barely compress and zipping 1.6 GB is slow.
+            with zipfile.ZipFile(target, "w", zipfile.ZIP_STORED) as archive:
+                for path in sorted(source.rglob("*")):
+                    archive.write(path, path.relative_to(models).as_posix())
+        else:
+            target = destination / name
+            shutil.copyfile(source, target)
+        log(f"{target} ({target.stat().st_size / 2**20:.0f} MB)")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(prog="iris-voz", description=__doc__.splitlines()[0])
-    parser.add_argument("command", nargs="?", default="serve", choices=["serve", "check"])
+    parser.add_argument(
+        "command",
+        nargs="?",
+        default="serve",
+        choices=["serve", "check", "baixar", "empacotar"],
+        help="baixar: busca os modelos desta máquina (ou --todos) e sai; "
+        "empacotar PASTA: copia os modelos baixados para PASTA no formato da release",
+    )
+    parser.add_argument("pasta", nargs="?", help="destino do empacotar")
+    parser.add_argument("--de", help="pasta local com os modelos (pendrive, rede), antes da internet")
+    parser.add_argument("--todos", action="store_true", help="baixar: todos os modelos (CPU e GPU)")
     parser.add_argument("--tts", default="auto", choices=["auto", "kokoro", "piper", "off"])
     parser.add_argument("--stt", default="off", help="auto, off ou nome do modelo Whisper")
     parser.add_argument("--voice", default="pf_dora", help="voz do Kokoro")
@@ -563,9 +660,22 @@ def main() -> None:
     cuda = has_cuda() and not args.cpu
 
     models = Path(args.models)
+    if args.de:
+        global LOCAL_MODELS
+        LOCAL_MODELS = args.de
+    if args.command == "baixar":
+        names = machine_models(cuda, args.stt, args.todos)
+        ensure_models(models, names)
+        log(f"modelos prontos em {models}: {', '.join(names)}")
+        return
+    if args.command == "empacotar":
+        if not args.pasta:
+            parser.error("empacotar precisa da pasta de destino")
+        package_models(models, Path(args.pasta))
+        return
     microphone = Microphone()
     speaker = None if args.tts == "off" else Speaker(args.tts, args.voice, args.speed, models, cuda)
-    listener = None if args.stt == "off" else Listener(args.stt, cuda, microphone)
+    listener = None if args.stt == "off" else Listener(args.stt, cuda, microphone, models)
     watcher = None
     if args.wake and listener is not None:
         watcher = WakeWatcher(models, microphone, listener, speaker)

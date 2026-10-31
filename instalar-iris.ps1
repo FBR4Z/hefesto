@@ -22,6 +22,10 @@
 .PARAMETER Voz
     desligada, avisos, ditado, ditado_avisos, completa ou pular. Vazio pergunta.
 
+.PARAMETER Modelos
+    Pasta com os modelos de voz (pendrive, rede) para instalar sem internet. Vazio baixa
+    da release "modelos-voz-v1" do GitHub da Íris (e só em último caso das fontes originais).
+
 .PARAMETER Pasta
     Onde clonar a Íris se o script não estiver dentro do repositório. Padrão: ~\iris
 
@@ -32,10 +36,12 @@
     .\instalar-iris.ps1
     .\instalar-iris.ps1 -Agentes claude,gemini -Voz avisos
     .\instalar-iris.ps1 -Simular
+    .\instalar-iris.ps1 -Voz avisos -Modelos E:\modelos-voz-v1
 #>
 param(
     [string]$Agentes = "",
     [string]$Voz = "",
+    [string]$Modelos = "",
     [string]$Pasta = (Join-Path $HOME "iris"),
     [switch]$Simular
 )
@@ -189,6 +195,12 @@ if ($Voz -ne "pular" -and $Voz -ne "desligada") {
     Executar "Instalando o serviço de voz $variante" {
         uv tool install --editable (Join-Path $Repo "voz") --python 3.13 --excludes (Join-Path $Repo "voz\$excludes") --force
     }
+    Atualizar-Path
+    $baixar = @("baixar")
+    if (-not $gpu) { $baixar += "--cpu"; if ($ramGb -lt 8) { $baixar += @("--stt", "base") } }
+    if ($Modelos) { $baixar += @("--de", $Modelos) }
+    $origem = if ($Modelos) { $Modelos } else { "GitHub" }
+    Executar "Baixando os modelos de voz ($origem)" { iris-voz @baixar }
 }
 
 if ($Voz -ne "pular") {
