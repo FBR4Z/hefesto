@@ -2,8 +2,8 @@ from typing import Literal, Mapping
 import platform
 
 NAME = "toad"
-TITLE = "Íris"
-ICON = "◉"
+TITLE = "Hefesto"
+ICON = "⚙"
 """Symbol shown wherever Toad used its frog."""
 
 type OS = Literal["linux", "macos", "windows", "*"]
@@ -40,7 +40,7 @@ def get_version() -> str:
     from importlib.metadata import version
 
     try:
-        return version("iris-cli")
+        return version("hefesto-cli")
     except Exception:
         try:
             return version("toad")

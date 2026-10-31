@@ -140,7 +140,7 @@ class MainScreen(Screen, can_focus=False):
     def compose(self) -> ComposeResult:
         with containers.Center():
             yield SideBar(
-                SideBar.Panel("Íris", IrisOrb()),
+                SideBar.Panel("Hefesto", IrisOrb()),
                 SideBar.Panel("Plano", Plan([])),
                 SideBar.Panel(
                     "Projeto",

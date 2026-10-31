@@ -796,7 +796,7 @@ class ToadApp(App, inherit_bindings=False):
             # That task is over; the rest of the app is fine, so don't quit on the user.
             self.notify(
                 f"Um erro interno foi registrado em {path}.",
-                title="Íris",
+                title="Hefesto",
                 severity="warning",
             )
             return

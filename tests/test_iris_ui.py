@@ -47,7 +47,7 @@ async def test_launcher_branding_and_defaults():
             pilot, lambda: {"Detalhes", "Abrir", "Configurações", "Sessões"} <= footer_labels(app)
         )
         assert app.theme == "iris"
-        assert app.terminal_title == "Íris"
+        assert app.terminal_title == "Hefesto"
         assert app.settings.get("statistics.allow_collect", bool) is False
 
         names = sorted(item._agent["name"] for item in app.screen.query(AgentItem))
@@ -55,7 +55,7 @@ async def test_launcher_branding_and_defaults():
         assert len(list(app.screen.query(LauncherItem))) == 3
 
         info = app.screen.query_one("#info").render().plain
-        assert "Íris" in info and "Toad" in info  # own name + credit to upstream
+        assert "Hefesto" in info and "Íris" in info and "Toad" in info  # own name + credits
         assert app.screen.query_one(IrisOrb)
 
 
@@ -67,7 +67,7 @@ async def test_conversation_layout_in_portuguese():
     async with app.run_test(size=SIZE) as pilot:
         await start_conversation(pilot)
         titles = [c.title for c in app.screen.query("SideBarCollapsible")]
-        assert titles == ["Íris", "Plano", "Projeto"]
+        assert titles == ["Hefesto", "Plano", "Projeto"]
         assert app.settings.get("ui.prompt_message", str) == "Como posso ajudar hoje?"
         # "Enviar" only shows once the prompt has focus.
         assert await wait_until(

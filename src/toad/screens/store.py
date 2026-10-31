@@ -348,7 +348,7 @@ class ProjectList(containers.VerticalGroup):
         else:
             yield widgets.Label(
                 "Nenhum projeto ainda. Numa sessão, use /projeto novo NOME "
-                "ou diga “Íris, cria um projeto chamado …”.",
+                "ou use /projeto numa conversa.",
                 classes="no-agents",
             )
 
@@ -457,12 +457,13 @@ class StoreScreen(Screen):
         content = Content.assemble(
             Content.from_markup(f"[b]{toad.ICON} {toad.TITLE}[/b]"),
             pill(f"v{version}", "$primary-muted", "$text-primary"),
-            ("\nClaude, Codex e Gemini num só lugar", "$text-success"),
+            ("\nClaude, Codex e Gemini no chão de fábrica, com os robôs ABB", "$text-success"),
             ("\nEscolha um agente abaixo para começar.", "dim"),
             "\n\n",
             (
                 Content.from_markup(
-                    "[dim]Fork do [@click=screen.url('https://github.com/batrachianai/toad')]Toad[/], "
+                    "[dim]Fork da [@click=screen.url('https://github.com/FBR4Z/iris')]Íris[/] e do "
+                    "[@click=screen.url('https://github.com/batrachianai/toad')]Toad[/], "
                     "de Will McGugan — licença AGPL-3.0"
                 )
             ),

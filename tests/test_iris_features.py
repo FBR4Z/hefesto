@@ -286,11 +286,13 @@ async def test_sharingan_orb_levels():
 def test_every_eye_draws_each_level():
     from textual.color import Color
     from toad.settings_schema import SCHEMA
+    from toad.widgets.hefesto_robots import ROBOTS
     from toad.widgets.iris_eyes import EYES, EyeContext
 
     iris = next(group for group in SCHEMA if group["key"] == "iris")
     theme_field = next(field for field in iris["fields"] if field["key"] == "orb_theme")
-    assert {value for _, value in theme_field["choices"]} == {"arco", *EYES}
+    assert {value for _, value in theme_field["choices"]} == {"arco", *EYES, *ROBOTS}
+    assert theme_field["default"] == "combinado"
     for eye in EYES.values():
         drawings = []
         for planning, elevation in ((True, 0.0), (False, 0.0), (False, 1.0)):
@@ -414,3 +416,55 @@ async def test_agent_command_output_is_shown():
         text = output.render().plain
         assert "Connecting...." in text and "A fatal error occurred" in text
         assert "\x1b" not in text and "\r" not in text
+
+
+def test_every_robot_theme_draws_each_phase():
+    """Hefesto: each robotic theme draws something different in each AI phase."""
+    from toad.widgets.hefesto_robots import ROBOTS, RobotStatus
+    from toad.widgets.iris_orb import IrisOrb, OrbState
+
+    states = (
+        OrbState(connected=True),
+        OrbState(connected=True, busy=True, planning=True),
+        OrbState(connected=True, busy=True, planning=False),
+        OrbState(connected=True, asking=True),
+        OrbState(connected=True, failed=True),
+    )
+
+    def draw(theme, state, elapsed=10.0):
+        orb = IrisOrb()
+        orb._elapsed = elapsed
+        orb._angle = elapsed * 0.4
+        orb._state = state
+        orb._activity = 1.0 if state.busy else 0.0
+        return orb._render_robot(36, 9, theme)
+
+    for theme in ROBOTS.values():
+        drawings = []
+        for state in states:
+            text = draw(theme, state)
+            assert len(text.plain.splitlines()) == 9
+            assert text.plain.strip(), (theme.key, state)
+            drawings.append(repr(text.spans) + text.plain)
+        # Color and/or shape change with the phase.
+        assert len(set(drawings)) > 1, theme.key
+        # Any widget size works (the sidebar can be narrow or wide).
+        for width, rows in ((12, 4), (60, 14)):
+            orb = IrisOrb()
+            orb._state = states[0]
+            assert len(orb._render_robot(width, rows, theme).plain.splitlines()) == rows
+
+    # The arm themes and the stack light follow a connected controller.
+    from toad.widgets.hefesto_robots import RobotContext, andon_light, arm_pose
+    from textual.color import Color
+
+    def context(robot, phase="repouso"):
+        return RobotContext(Color(255, 255, 255), phase, 10.0, 0.0, 0.0, 0.0, False, False, robot)
+
+    robot = RobotStatus(connected=True, opmode="AUTO", motors="MotorsOn", running=True, joints=(0, 10, -20, 0, 30, 0))
+    assert arm_pose(context(robot))[0] == (80, -70, -30)
+    assert andon_light(context(robot))[0] == "verde"
+    assert andon_light(context(RobotStatus(connected=True, opmode="Manual", motors="MotorsOff")))[0] == "amarelo"
+    assert andon_light(context(RobotStatus(connected=True, motors="EmergencyStop")))[0] == "vermelho"
+    assert andon_light(context(robot, "confirmacao"))[0] == "azul"
+    assert andon_light(context(None, "pensando"))[0] == "azul"

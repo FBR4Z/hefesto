@@ -111,7 +111,7 @@ O agente encerrou a conexão sozinho, sem informar erro. Causas comuns:
 
 - **Conta corporativa** que bloqueia o uso pela linha de comando (ex.: Codex em um workspace
   ChatGPT Business/Enterprise sem acesso ao Codex CLI liberado pelo administrador).
-- Login expirado: rode o agente uma vez fora da Íris (`codex`, `claude`, `gemini`) e faça login.
+- Login expirado: rode o agente uma vez fora do Hefesto (`codex`, `claude`, `gemini`) e faça login.
 - Proxy ou firewall da rede bloqueando o servidor do agente.
 
 O registro completo da conversa com o agente fica em `~/.local/state/toad/logs`.
@@ -1333,7 +1333,7 @@ class Conversation(containers.Vertical):
         agent = self.agent_title or "Este agente"
         if option is None:
             self.notify(
-                f"{agent} não permite trocar isso pela Íris.",
+                f"{agent} não permite trocar isso pelo Hefesto.",
                 title=f"/{command}",
                 severity="warning",
             )
@@ -1618,7 +1618,7 @@ class Conversation(containers.Vertical):
     def _build_slash_commands(self) -> list[SlashCommand]:
         slash_commands = [
             SlashCommand("/fechar", "Fechar esta sessão"),
-            SlashCommand("/sair", "Sair da Íris"),
+            SlashCommand("/sair", "Sair do Hefesto"),
             SlashCommand("/toad:about", "About Toad"),
             SlashCommand(
                 "/toad:clear",
@@ -1663,7 +1663,7 @@ class Conversation(containers.Vertical):
         commands = [
             SlashCommand(
                 "/projeto",
-                "Projetos da Íris: pastas, arquivos, descrição e MCP",
+                "Projetos do Hefesto: pastas, arquivos, descrição e MCP",
                 "<nome | novo NOME descrição | adicionar CAMINHO | remover CAMINHO>",
             )
         ]

@@ -290,7 +290,7 @@ class Shell:
             from winpty import PtyProcess
         except ImportError:
             self._start_error = (
-                "O shell integrado precisa do pacote pywinpty. Feche a Íris e rode "
+                "O shell integrado precisa do pacote pywinpty. Feche o Hefesto e rode "
                 "o instalar-iris.ps1 de novo para atualizar."
             )
             return None

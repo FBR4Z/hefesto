@@ -83,7 +83,7 @@ class DefaultCommandGroup(click.Group):
 @click.option("-v", "--version", is_flag=True, help="Show version and exit.")
 @click.pass_context
 def main(ctx, version):
-    """Íris — Claude, Codex e Gemini no seu terminal."""
+    """Hefesto — Claude, Codex e Gemini no chão de fábrica, com os robôs ABB no contexto."""
     from toad.iris_crash import install_fault_handler
 
     install_fault_handler()
@@ -129,7 +129,7 @@ def main(ctx, version):
     "--projeto",
     metavar="NOME",
     default="",
-    help="Abre na pasta principal de um projeto da Íris (veja `iris projeto`).",
+    help="Abre na pasta principal de um projeto do Hefesto (veja `hefesto projeto`).",
 )
 def run(
     port: int,
@@ -287,7 +287,7 @@ def _get_project(name: str):
     from toad.iris_projects import find_project, load_projects
 
     if (project := find_project(load_projects(), name)) is None:
-        raise click.ClickException(f'Projeto "{name}" não encontrado (veja `iris projeto listar`).')
+        raise click.ClickException(f'Projeto "{name}" não encontrado (veja `hefesto projeto listar`).')
     return project
 
 
@@ -297,7 +297,7 @@ def _edit_project(name: str):
 
     projects = load_projects()
     if (project := find_project(projects, name)) is None:
-        raise click.ClickException(f'Projeto "{name}" não encontrado (veja `iris projeto listar`).')
+        raise click.ClickException(f'Projeto "{name}" não encontrado (veja `hefesto projeto listar`).')
     return projects, project
 
 
@@ -415,8 +415,8 @@ def projeto_mcp(
     """Liga um servidor MCP ao projeto: um comando (stdio) ou uma URL (http).
 
     \b
-    iris projeto mcp Estufa esp-idf -- python tools\\esp_idf_mcp.py C:\\esp\\estufa
-    iris projeto mcp Estufa espressif-docs https://mcp.espressif.com/docs
+    hefesto projeto mcp Celula abb-robot -- C:\\ferramentas\\abbctl\\abbctl-mcp.exe
+    hefesto projeto mcp Celula abb-rws -- abbrwsctl-mcp
     """
     from toad.iris_projects import ProjectError, parse_mcp_command, save_projects
 
@@ -436,7 +436,7 @@ def projeto_mcp(
 @click.option("-a", "--agente", default="", help="Agente (padrão: o do projeto).")
 @click.pass_context
 def projeto_abrir(ctx, nome: str, agente: str) -> None:
-    """Abre a Íris na pasta principal do projeto."""
+    """Abre o Hefesto na pasta principal do projeto."""
     project = _get_project(nome)
     ctx.invoke(run, projeto=project.nome, agent=agente or project.agente)
 

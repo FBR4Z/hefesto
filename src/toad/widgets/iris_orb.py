@@ -15,6 +15,14 @@ from textual.color import Color
 from textual.widget import Widget
 
 from toad.widgets.iris_eyes import EYES, EyeContext, EyeTheme
+from toad.widgets.hefesto_robots import (
+    DEFAULT_ROBOT_THEME,
+    ROBOTS,
+    Canvas,
+    RobotContext,
+    RobotTheme,
+    phase_of,
+)
 
 if TYPE_CHECKING:
     from toad.widgets.conversation import Conversation
@@ -161,12 +169,17 @@ class IrisOrb(Widget):
     @property
     def theme(self) -> str:
         """Look of the orb: "arco" (arc reactor) or one of the eyes (e.g. "sharingan")."""
-        return self._setting("iris.orb_theme", THEME_ARC).strip().lower()
+        return self._setting("iris.orb_theme", DEFAULT_ROBOT_THEME).strip().lower()
 
     @property
     def eye(self) -> EyeTheme | None:
         """The eye theme, or None for the arc reactor."""
         return EYES.get(self.theme)
+
+    @property
+    def robot_theme(self) -> RobotTheme | None:
+        """Hefesto's robotic theme, or None for the ring and the eyes."""
+        return ROBOTS.get(self.theme)
 
     def _conversation(self) -> Conversation | None:
         from toad.widgets.conversation import Conversation
@@ -333,7 +346,9 @@ class IrisOrb(Widget):
         width = self.size.width
         label_lines = self.LABEL_LINES if self.show_label else 0
         rows = max(self.size.height - label_lines, 1)
-        if (eye := self.eye) is not None:
+        if (robot_theme := self.robot_theme) is not None:
+            text = self._render_robot(width, rows, robot_theme)
+        elif (eye := self.eye) is not None:
             text = self._render_eye(width, rows, eye)
         else:
             text = self._render_ring(width, rows)
@@ -513,6 +528,43 @@ class IrisOrb(Widget):
                         cx, cy = ix // 2, iy // 4
                         bits[cy][cx] |= DOT_BITS[iy % 4][ix % 2]
                         glow[cy][cx] = max(glow[cy][cx], 1.1 * (1 - progress))
+        return self._to_text(bits, glow, colors)
+
+    def _render_robot(self, width: int, rows: int, theme: RobotTheme) -> Text:
+        """Robotic themes: drawn by `hefesto_robots`, scaled to the widget."""
+        dots_w, dots_h = width * 2, rows * 4
+        bits = [[0] * width for _ in range(rows)]
+        glow = [[0.0] * width for _ in range(rows)]
+        colors: list[list[Color]] = [[self._color] * width for _ in range(rows)]
+        # Power-up: the drawing fades in from the bottom.
+        reveal = dots_h * (1 - ease_out(self._elapsed / BOOT_SECONDS))
+
+        def plot(x: float, y: float, brightness: float, color: Color) -> None:
+            ix, iy = int(x), int(y)
+            if 0 <= ix < dots_w and 0 <= iy < dots_h and iy >= reveal:
+                cx, cy = ix // 2, iy // 4
+                bits[cy][cx] |= DOT_BITS[iy % 4][ix % 2]
+                if brightness > glow[cy][cx]:
+                    glow[cy][cx] = brightness
+                    colors[cy][cx] = color
+
+        state = self._state
+        try:
+            robot = getattr(self.app, "hefesto_robot_status", None)
+        except Exception:  # not mounted (previews, tests)
+            robot = None
+        context = RobotContext(
+            color=self._color,
+            phase=phase_of(state.failed, state.asking, state.busy, state.planning),
+            elapsed=self._elapsed,
+            rotation=self._angle,
+            activity=self._activity,
+            voice=self._voice_level,
+            speaking=state.speaking,
+            listening=state.listening,
+            robot=robot,
+        )
+        theme.draw(Canvas(plot, dots_w, dots_h), context)
         return self._to_text(bits, glow, colors)
 
     def _render_label(self, width: int) -> Text:

@@ -90,7 +90,7 @@ class Project:
 
     def context_prompt(self) -> str:
         """What the agent is told about the project, ahead of the first prompt."""
-        lines = [f'[Contexto do projeto Íris "{self.nome}"]']
+        lines = [f'[Contexto do projeto Hefesto "{self.nome}"]']
         if self.descricao:
             lines.append(f"Descrição: {self.descricao}")
         if self.pastas:
