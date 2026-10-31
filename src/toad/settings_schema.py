@@ -1,3 +1,4 @@
+from toad import WAKE_NAME
 import sys
 
 from toad.settings import SchemaDict
@@ -525,14 +526,14 @@ SCHEMA: list[SchemaDict] = [
             {
                 "key": "comandos",
                 "title": "Comandos de voz?",
-                "help": "Ditado que começa com 'Íris' vira comando da própria Íris (ex.: 'Íris, modo planejamento', 'Íris, abrir o Gemini', 'Íris, ajuda').",
+                "help": f"Ditado que começa com '{WAKE_NAME}' vira comando (ex.: '{WAKE_NAME}, modo planejamento', '{WAKE_NAME}, abrir o Gemini', '{WAKE_NAME}, ajuda').",
                 "type": "boolean",
                 "default": True,
             },
             {
                 "key": "ativacao",
-                "title": 'Palavra de ativação ("Íris")?',
-                "help": "Diga 'Íris' e o comando ou o texto, sem apertar F9 (ex.: 'Íris, abre o Gemini'). Um vigia leve (Vosk, no processador) espera a palavra; o que vem depois é transcrito pelo modelo do ditado e só vale se começar com 'Íris'. Requer um modo com ditado.",
+                "title": f'Palavra de ativação ("{WAKE_NAME}")?',
+                "help": f"Diga '{WAKE_NAME}' e o comando ou o texto, sem apertar F9 (ex.: '{WAKE_NAME}, abre o Gemini'). Um vigia leve (Vosk, no processador) espera a palavra; o que vem depois é transcrito pelo modelo do ditado e só vale se começar com '{WAKE_NAME}'. Requer um modo com ditado.",
                 "type": "boolean",
                 "default": False,
             },

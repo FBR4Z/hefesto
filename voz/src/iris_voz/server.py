@@ -525,6 +525,9 @@ class WakeWatcher:
 
         SetLogLevel(-1)
         self._model = Model(str(self.models / WAKE_MODEL))
+        find_word = getattr(self._model, "find_word", None)  # newer vosk only
+        if find_word is not None and find_word(self.word) < 0:
+            raise RuntimeError(f"o modelo {WAKE_MODEL} não conhece a palavra {self.word!r}")
 
     def _recognizer(self):
         from vosk import KaldiRecognizer
@@ -649,8 +652,9 @@ def main() -> None:
     parser.add_argument("--speed", type=float, default=1.0)
     parser.add_argument("--cpu", action="store_true", help="ignora a GPU")
     parser.add_argument(
-        "--wake", action="store_true", help='vigia a palavra "Íris" (precisa de --stt)'
+        "--wake", action="store_true", help='vigia a palavra de ativação (precisa de --stt)'
     )
+    parser.add_argument("--wake-word", default=WAKE_WORD, help='palavra de ativação (padrão: "íris")')
     parser.add_argument("--models", default=os.environ.get("IRIS_VOZ_MODELS", str(DEFAULT_MODELS)))
     args = parser.parse_args()
 
@@ -678,7 +682,7 @@ def main() -> None:
     listener = None if args.stt == "off" else Listener(args.stt, cuda, microphone, models)
     watcher = None
     if args.wake and listener is not None:
-        watcher = WakeWatcher(models, microphone, listener, speaker)
+        watcher = WakeWatcher(models, microphone, listener, speaker, args.wake_word.lower())
 
     try:
         if speaker is not None:

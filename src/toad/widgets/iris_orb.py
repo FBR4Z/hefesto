@@ -601,7 +601,9 @@ class IrisOrb(Widget):
             elif just_done:
                 status = "concluído ✓"
             elif state.watching:
-                status = "diga “Íris”"
+                from toad import WAKE_NAME
+
+                status = f"diga “{WAKE_NAME}”"
             else:
                 status = "pronto"
         label = Text(no_wrap=True, overflow="crop")

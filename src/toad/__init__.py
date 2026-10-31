@@ -5,6 +5,13 @@ NAME = "toad"
 TITLE = "Hefesto"
 ICON = "⚙"
 """Symbol shown wherever Toad used its frog."""
+WAKE_NAME = "Íris"
+"""What you call the assistant by voice ("Íris, modo planejamento").
+
+The wake word watcher (Vosk) needs it in its vocabulary: `iris-voz` warns otherwise.
+"""
+WAKE_SPELLINGS = ("iris", "ires", "iriz", "eris", "irish", "isis", "iiris")
+"""How Whisper may write the name (normalized: lowercase, no accents)."""
 
 type OS = Literal["linux", "macos", "windows", "*"]
 
