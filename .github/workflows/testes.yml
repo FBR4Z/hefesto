@@ -1,9 +1,10 @@
-name: Testes da Íris
+name: Testes do Hefesto
 
 on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
 
 jobs:
   testes:
