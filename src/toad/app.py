@@ -697,9 +697,13 @@ class ToadApp(App, inherit_bindings=False):
         self.set_process_title()
         self.call_later(self.iris_voice.sync)
         self.update_show_sessions()
+        from toad.hefesto_commands import install_alarms
+        from toad.hefesto_rapid import register_lexer
         from toad.hefesto_robot import install
 
         install(self)
+        install_alarms(self)
+        register_lexer()
 
     @work(thread=True, exit_on_error=False)
     def set_process_title(self) -> None:

@@ -69,6 +69,13 @@ class Controller:
     escrita: bool = False
     """Writes allowed on a real controller (virtual ones always allow them)."""
     descricao: str = ""
+    gemeo: str = ""
+    """Virtual twin (apelido of a virtual controller restored from this one's backup):
+    edits are loaded and tried there before the real robot."""
+    sinais: list[str] = field(default_factory=list)
+    """Signals watched live (I/O panel, alarms)."""
+    ciclo: str = ""
+    """Signal whose rising edge starts a cycle; empty: a cycle is program start → stop."""
 
     @property
     def writable(self) -> bool:
@@ -165,7 +172,10 @@ def monitor_command(registry: Registry, controller: Controller) -> list[str] | N
     """Command that streams this controller's state as NDJSON, or None if unsupported."""
     if controller.tipo == "pcsdk":
         if abbctl := find_tool(registry.abbctl, "abbctl"):
-            return [abbctl, "-c", controller.endereco, "monitor", "--interval", "1"]
+            command = [abbctl, "-c", controller.endereco, "monitor", "--interval", "1", "--parent-stdin"]
+            if signals := list(dict.fromkeys([*controller.sinais, *([controller.ciclo] if controller.ciclo else [])])):
+                command += ["--io", ",".join(signals)]
+            return command
         return None
     if abbrwsctl := shutil.which("abbrwsctl"):
         command = [abbrwsctl, "--host", controller.endereco, "monitor"]
@@ -208,11 +218,33 @@ def mcp_servers(registry: Registry, controllers: Iterable[Controller]) -> list[d
 # ------------------------------------------------------------------------ status
 
 
-def apply_event(status: RobotStatus, event: dict[str, Any], now: float | None = None) -> None:
+CYCLES_KEPT = 50
+
+
+def _cycle_mark(status: RobotStatus, now: float) -> None:
+    """A cycle starts now: close the previous one."""
+    if status.cycle_started is not None and now > status.cycle_started:
+        status.cycles.append(now - status.cycle_started)
+        del status.cycles[:-CYCLES_KEPT]
+    status.cycle_started = now
+
+
+def apply_event(
+    status: RobotStatus, event: dict[str, Any], now: float | None = None, cycle_signal: str = ""
+) -> None:
     """Fold one monitor line into `status`."""
     now = time.monotonic() if now is None else now
     kind = event.get("type")
     value = event.get("value")
+    if kind == "exec" and not cycle_signal:
+        # Without a cycle signal, a cycle is one program run (start → stop).
+        running = str(value).lower() == "running"
+        if running and not status.running:
+            status.cycle_started = now
+        elif not running and status.running and status.cycle_started is not None:
+            status.cycles.append(now - status.cycle_started)
+            del status.cycles[:-CYCLES_KEPT]
+            status.cycle_started = None
     if kind == "snapshot":
         status.connected = True
         status.error = ""
@@ -224,6 +256,8 @@ def apply_event(status: RobotStatus, event: dict[str, Any], now: float | None = 
         status.joints = _joints(event.get("joints"))
         status.robotware = str(event.get("robotwareVersion", ""))
         status.detected_virtual = event.get("virtual")
+        status.task = str(event.get("task") or "")
+        status.pp = str(event.get("pp") or "")
     elif kind == "state":
         status.motors = str(value)
     elif kind == "opmode":
@@ -234,8 +268,18 @@ def apply_event(status: RobotStatus, event: dict[str, Any], now: float | None = 
         status.speed = _int(value)
     elif kind == "joints":
         status.joints = _joints(value)
+    elif kind == "pp":
+        status.pp = str(value or "")
+    elif kind == "io":
+        name, new = str(event.get("name", "")), str(value)
+        if name == cycle_signal and new not in ("0", "False") and status.io.get(name) in ("0", "False"):
+            _cycle_mark(status, now)
+        status.io[name] = new
     elif kind == "log":
         severity = str(event.get("severity", "info"))
+        if severity == "error":
+            status.last_error = {key: event.get(key, "") for key in ("code", "title", "body")}
+            status.last_error["pp"] = status.pp
         status.events.append((now, severity))
         status.log.append(f"{event.get('code', '')} {event.get('title', '')}".strip())
         del status.events[:-EVENTS_KEPT]
@@ -274,6 +318,10 @@ def describe(controller: Controller, status: RobotStatus | None) -> str:
              "programa rodando" if status.running else "programa parado"]
     if status.speed is not None:
         parts.append(f"velocidade {status.speed}%")
+    if status.pp:
+        parts.append(f"ponteiro {status.pp}")
+    if status.cycles:
+        parts.append(f"ciclo médio {sum(status.cycles) / len(status.cycles):.1f} s")
     if status.joints:
         parts.append("eixos " + " ".join(f"{value:.1f}" for value in status.joints))
     if controller.real and status.detected_virtual:
@@ -290,6 +338,8 @@ def context_prompt(controllers: list[Controller], statuses: dict[str, RobotStatu
         lines.append(f"- {describe(controller, statuses.get(controller.apelido))}")
         if controller.descricao:
             lines.append(f"  {controller.descricao}")
+        if controller.gemeo:
+            lines.append(f"  Gêmeo virtual: {controller.gemeo} (teste lá antes de mudar o real).")
         if status := statuses.get(controller.apelido):
             if status.log:
                 lines.append("  Últimos eventos: " + " | ".join(status.log[-3:]))
@@ -362,6 +412,18 @@ class RobotMonitor:
         if self.on_change is not None:
             self.on_change()
 
+    on_alarm: Callable[[Controller, str], None] | None = None
+    """Called with a short sentence when a controller stops hard or logs an error."""
+
+    def _alarm(self, controller: Controller, status: RobotStatus, before: tuple, event: dict) -> None:
+        if self.on_alarm is None or event.get("type") == "snapshot":
+            return
+        stopped_before, error_before = before
+        if status.stopped_hard and not stopped_before:
+            self.on_alarm(controller, f"{controller.apelido}: {status.motors}")
+        elif status.last_error is not None and status.last_error is not error_before:
+            self.on_alarm(controller, f"{controller.apelido}: erro {status.last_error.get('title', '')}")
+
     async def _watch(self, controller: Controller) -> None:
         status = self.statuses[controller.apelido]
         while True:
@@ -378,7 +440,8 @@ class RobotMonitor:
             try:
                 process = await asyncio.create_subprocess_exec(
                     *command,
-                    stdin=asyncio.subprocess.DEVNULL,
+                    # Kept open: when Hefesto goes away the monitor sees EOF and exits.
+                    stdin=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
                     creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
@@ -397,8 +460,10 @@ class RobotMonitor:
                 except ValueError:
                     continue
                 if isinstance(event, dict):
-                    apply_event(status, event)
+                    before = (status.stopped_hard, status.last_error)
+                    apply_event(status, event, cycle_signal=controller.ciclo)
                     self._changed()
+                    self._alarm(controller, status, before, event)
             await process.wait()
             stderr = b""
             if process.stderr is not None:

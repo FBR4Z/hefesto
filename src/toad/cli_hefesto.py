@@ -140,6 +140,64 @@ def register(main: click.Group, projeto: click.Group) -> None:
         save_registry(registry)
         click.echo(f'Escrita {"liberada" if controller.escrita else "bloqueada"} em "{apelido}".')
 
+    def _edit(apelido: str):
+        from toad.hefesto_robot import RobotError
+
+        registry = _registry()
+        try:
+            return registry, registry.find(apelido)
+        except RobotError as error:
+            _fail(error)
+
+    @robo.command("gemeo")
+    @click.argument("apelido")
+    @click.argument("gemeo", required=False, default="")
+    def robo_gemeo(apelido: str, gemeo: str) -> None:
+        """Liga um controlador ao seu gêmeo virtual (sem GEMEO: desliga).
+
+        O gêmeo é um controlador VIRTUAL do RobotStudio restaurado do backup do
+        real: o /rapid aplicar carrega lá primeiro."""
+        from toad.hefesto_robot import RobotError, save_registry
+
+        registry, controller = _edit(apelido)
+        if gemeo:
+            try:
+                twin = registry.find(gemeo)
+            except RobotError as error:
+                _fail(error)
+            if twin.real:
+                raise click.ClickException(f'"{twin.apelido}" está cadastrado como REAL: o gêmeo precisa ser virtual.')
+            if twin.apelido == controller.apelido:
+                raise click.ClickException("Um controlador não pode ser gêmeo de si mesmo.")
+            gemeo = twin.apelido
+        controller.gemeo = gemeo
+        save_registry(registry)
+        click.echo(f'{controller.apelido}: gêmeo {gemeo or "desligado"}.')
+
+    @robo.command("sinais")
+    @click.argument("apelido")
+    @click.argument("sinais", nargs=-1)
+    def robo_sinais(apelido: str, sinais: tuple[str, ...]) -> None:
+        """Sinais acompanhados ao vivo (sem SINAIS: nenhum)."""
+        from toad.hefesto_robot import save_registry
+
+        registry, controller = _edit(apelido)
+        controller.sinais = list(sinais)
+        save_registry(registry)
+        click.echo(f'{controller.apelido}: sinais {", ".join(sinais) or "nenhum"} (reabra o Hefesto).')
+
+    @robo.command("ciclo")
+    @click.argument("apelido")
+    @click.argument("sinal", required=False, default="")
+    def robo_ciclo(apelido: str, sinal: str) -> None:
+        """Sinal cuja subida marca o início de cada ciclo (sem SINAL: início→fim do programa)."""
+        from toad.hefesto_robot import save_registry
+
+        registry, controller = _edit(apelido)
+        controller.ciclo = sinal
+        save_registry(registry)
+        click.echo(f'{controller.apelido}: ciclo por {sinal or "início → fim do programa"} (reabra o Hefesto).')
+
     @robo.command("ferramentas")
     @click.option("--abbctl", default=None, help="Caminho do abbctl.exe.")
     @click.option("--abbctl-mcp", "abbctl_mcp", default=None, help="Caminho do abbctl-mcp.exe.")

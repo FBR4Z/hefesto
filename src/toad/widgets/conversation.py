@@ -419,6 +419,8 @@ class Conversation(containers.Vertical):
         self.config_options: dict[str, ConfigOption] = {}
         """Session options reported by the agent (model, effort...), by id."""
         self.iris_project: Project | None = None
+        self.hefesto_edit = None
+        """Hefesto: the RAPID module being edited (`/rapid editar`)."""
         """The Íris project this session's folder belongs to."""
         self._iris_project_told = agent_session_id is not None
         """The agent already heard about the project (a resumed session did before)."""
@@ -1659,7 +1661,10 @@ class Conversation(containers.Vertical):
         """Íris' own commands; `/model` & co. only when the agent offers the option."""
         from toad.iris_config import EFFORT, MODEL, by_category
 
+        from toad.hefesto_commands import slash_commands as hefesto_slash_commands
+
         commands = [
+            *hefesto_slash_commands(),
             SlashCommand(
                 "/projeto",
                 "Projetos do Hefesto: pastas, arquivos, descrição e MCP",
@@ -2249,6 +2254,10 @@ class Conversation(containers.Vertical):
             return True
         elif command == "projeto":
             await self.iris_project_command(parameters)
+            return True
+        from toad import hefesto_commands
+
+        if await hefesto_commands.run(self, command, parameters):
             return True
         if command == "toad:about":
             from toad import about

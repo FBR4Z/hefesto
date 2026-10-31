@@ -108,3 +108,12 @@ async def wait_until(pilot, predicate, timeout: float = 20.0) -> bool:
             return True
         await pilot.pause(0.1)
     return predicate()
+
+
+@pytest.fixture(autouse=True)
+def empty_robot_registry():
+    """Hefesto: every test starts without registered controllers."""
+    from toad.hefesto_robot import registry_path
+
+    registry_path().unlink(missing_ok=True)
+    yield

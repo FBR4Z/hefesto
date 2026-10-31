@@ -123,6 +123,11 @@ def parse_command(text: str) -> Command | None:
         return None
     if not rest:
         return Command("vazio")
+    from toad.hefesto_commands import VOICE_PATTERNS
+
+    for pattern, name in VOICE_PATTERNS:  # Hefesto: robots first
+        if match := re.search(pattern, rest):
+            return Command(name, match.group("arg").strip())
     for pattern, name in PATTERNS:
         if match := re.search(pattern, rest):
             if name == "abrir_projeto":
@@ -222,6 +227,10 @@ async def run_command(
             return False
         return True
 
+    if command.name.startswith("robo_"):
+        from toad.hefesto_commands import voice_command
+
+        return voice_command(app, command.name, command.argument)
     match command.name:
         case "modo_planejamento" | "modo_execucao":
             if not need_conversation():

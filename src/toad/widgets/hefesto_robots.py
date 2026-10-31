@@ -58,6 +58,16 @@ class RobotStatus:
     """What the controller says about itself (the registry's `real` is what counts)."""
     log: list[str] = field(default_factory=list)
     """Recent event log lines ("10012 Safety guard stop state")."""
+    last_error: dict | None = None
+    """The latest error event as sent by the monitor (code, title, body)."""
+    task: str = ""
+    pp: str = ""
+    """Program pointer of the motion task: "Module/routine:row"."""
+    io: dict[str, str] = field(default_factory=dict)
+    """Watched signals → value."""
+    cycles: list[float] = field(default_factory=list)
+    """Recent cycle times, seconds."""
+    cycle_started: float | None = None
 
     @property
     def stopped_hard(self) -> bool:

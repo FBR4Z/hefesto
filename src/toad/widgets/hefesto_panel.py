@@ -68,4 +68,6 @@ class RobotPanel(Widget):
             if status.speed is not None:
                 details.append(f"{status.speed}%")
             text.append(" · ".join(item for item in details if item), Style(dim=True))
+            if status.pp:
+                text.append(f"\n    ↳ {status.pp}", Style(dim=True))
         return text

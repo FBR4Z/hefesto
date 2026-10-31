@@ -66,6 +66,58 @@ hefesto projeto controladores Celula3 celula3-solda bancada
   - virtual: liberado.
 - **Painel "Robôs"** na barra lateral: luz, apelido, REAL/VIRTUAL, modo, motores, programa e velocidade de cada controlador, atualizados por eventos (`abbctl monitor`).
 
+## Programar os robôs
+
+### Editar RAPID com segurança
+
+```text
+/rapid editar celula3-solda MainModule ia    a IA edita; você revisa e aprova
+/rapid editar celula3-solda MainModule eu    você edita (abre no editor); a IA revisa e confirma
+/rapid revisar                               diff, estrutura e o que muda o movimento
+/rapid aplicar                               gêmeo virtual primeiro, depois o controlador, com confirmação
+/rapid voltar [versão]                       carrega uma versão anterior
+/rapid historico · /rapid modelo [nome] · /rapid cancelar
+```
+
+1. **Editar:** o Hefesto lê o módulo do controlador, guarda no **histórico** e cria uma cópia de trabalho.
+   - Em `ia`, o pedido para a IA já vem pronto, e ela é instruída a mexer só na cópia.
+   - Em `eu`, a cópia abre no editor (`HEFESTO_EDITOR`, ou o Bloco de Notas).
+2. **Revisar:** mostra o diff e aponta erros de estrutura (blocos sem `END...`, parênteses e aspas sem fechar). Também marca o que muda o movimento ou a segurança:
+   - 🔴 velocidades e zonas, alvos (com o deslocamento em mm), ferramenta e obra, movimentos novos ou removidos, `AccSet`/`VelSet`/`ConfL`...
+   - 🟡 I/O e esperas.
+
+   No modo `eu`, a revisão vai para a IA, que precisa terminar com `VEREDITO: APROVADO` para liberar o passo seguinte.
+3. **Aplicar:** exige revisão da versão atual da cópia. Se o controlador tiver **gêmeo virtual**, o módulo vai para ele primeiro. Depois, uma janela de confirmação com os riscos e o carregamento (`prog load --replace`). O programa precisa estar parado.
+4. **Desfazer:** `/rapid voltar` lista as versões e carrega a escolhida.
+
+O histórico é um **git local e privado** por controlador, em `~\.local\share\hefesto\rapid\`, que nunca é enviado para lugar nenhum.
+
+### Gêmeo virtual
+
+Restaure o backup do robô real numa estação do RobotStudio, cadastre-a como virtual e ligue as duas:
+
+```powershell
+hefesto robo adicionar celula3-gemeo CELULA3_SISTEMA --virtual
+hefesto robo gemeo celula3-solda celula3-gemeo
+```
+
+### Mais comandos
+
+| Comando | O que faz |
+|---|---|
+| `/ponto pPega` | grava a posição atual do robô (TCP na obra ativa, com tool e wobj) como `CONST robtarget`. Com uma edição aberta, entra direto na cópia de trabalho; sem ela, vai para a área de transferência |
+| `/io celula3 DO_` | sinais e valores, com filtro |
+| `/explicar` | a IA explica o último erro, com o texto do próprio controlador (causas e ações) e o trecho do programa onde o ponteiro parou |
+| `/ciclo` | último ciclo, média, desvio e um minigráfico; avisa quando o último ciclo foge da média |
+| `/rapid modelo` | modelos validados: pega e coloca, paletização, tratamento de erro (`ERROR`, `TRAP`), handshake com o CLP |
+
+```powershell
+hefesto robo sinais celula3-solda DO_GARRA DI_PECA   # acompanhados ao vivo
+hefesto robo ciclo celula3-solda DO_CICLO            # subida do sinal = novo ciclo (sem sinal: início → fim do programa)
+```
+
+O painel **Robôs** mostra também o ponteiro do programa. Paradas de emergência e erros de qualquer controlador aparecem como alerta na tela e são falados, se a voz estiver em modo de avisos. Por voz, só leitura: "Vulcano, status da célula 3", "Vulcano, qual foi o último erro?", "Vulcano, tempo de ciclo".
+
 ## Animação
 
 Em **F2 → Hefesto → Animação**:
