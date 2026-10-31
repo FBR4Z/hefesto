@@ -36,10 +36,21 @@ from toad.widgets.hefesto_robots import RobotStatus
 
 FILE_NAME = "hefesto-controladores.json"
 TYPES = {
-    "pcsdk": "IRC5 (PC SDK)",
-    "rws": "IRC5 (RWS)",
-    "rws2": "OmniCore (RWS 2.0)",
+    "pcsdk": "PC SDK",
+    "rws": "RWS 1.0",
+    "rws2": "RWS 2.0",
 }
+"""How Hefesto talks to the controller. PC SDK works with IRC5 (option 616-1 PC
+Interface) and OmniCore (option 3119-1 RobotStudio Connect); virtual controllers
+need neither."""
+
+
+def family(robotware: str) -> str:
+    """IRC5 (RobotWare 6) or OmniCore (RobotWare 7+), from the version string."""
+    try:
+        return "OmniCore" if int(robotware.split(".")[0]) >= 7 else "IRC5"
+    except ValueError:
+        return ""
 RESTART_SECONDS = 5.0
 EVENTS_KEPT = 40
 
@@ -252,7 +263,10 @@ def _joints(value: Any) -> tuple[float, ...] | None:
 
 def describe(controller: Controller, status: RobotStatus | None) -> str:
     """One line for the agent and the panel: mode, motors, program, speed."""
-    head = f"{controller.apelido} · {controller.kind_label} · {TYPES.get(controller.tipo, controller.tipo)}"
+    head = f"{controller.apelido} · {controller.kind_label}"
+    if status is not None and (name := family(status.robotware)):
+        head += f" · {name} RobotWare {status.robotware}"
+    head += f" · via {TYPES.get(controller.tipo, controller.tipo)}"
     if status is None or not status.connected:
         reason = status.error if status is not None and status.error else "sem conexão ainda"
         return f"{head} · {reason}"

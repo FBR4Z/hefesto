@@ -79,7 +79,7 @@ def register(main: click.Group, projeto: click.Group) -> None:
     @click.argument("apelido")
     @click.argument("endereco")
     @click.option("--tipo", type=click.Choice(["pcsdk", "rws", "rws2"]), default="pcsdk",
-                  help="pcsdk: IRC5 com PC Interface (padrão); rws: IRC5 por RWS; rws2: OmniCore.")
+                  help="pcsdk (padrão): IRC5 com PC Interface 616-1 ou OmniCore com RobotStudio Connect 3119-1; rws: IRC5 por RWS; rws2: OmniCore por RWS 2.0.")
     @click.option("--real/--virtual", "real", default=None,
                   help="Obrigatório: é um robô de verdade ou uma estação do RobotStudio?")
     @click.option("-d", "--descricao", default="", help="Ex.: IRB 6700, solda ponto, célula 3.")
