@@ -10,6 +10,20 @@ from conftest import agent_data, wait_until, write_settings
 
 SIZE = (130, 40)
 
+IRIS_SPELLINGS = ("iris", "ires", "iriz", "eris", "irish", "isis", "iiris")
+
+
+@pytest.fixture(autouse=True)
+def iris_name(monkeypatch):
+    """These transcripts say "Íris": keep that name even in forks that use another."""
+    import toad
+    import toad.iris_commands
+
+    for module in (toad, toad.iris_commands):
+        monkeypatch.setattr(module, "WAKE_NAME", "Íris")
+    monkeypatch.setattr(toad, "WAKE_SPELLINGS", IRIS_SPELLINGS)
+    monkeypatch.setattr(toad.iris_commands, "WAKE_WORDS", IRIS_SPELLINGS)
+
 
 def test_normalize():
     assert normalize("Íris, Modo de Execução!") == "iris modo de execucao"
