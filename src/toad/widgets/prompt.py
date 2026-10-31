@@ -395,6 +395,9 @@ See on-screen instructions for details.
                 direction = -1 if x < previous_x else +1
             else:
                 direction = 0
+            if y >= self.document.line_count:
+                # The text shrank under the cursor (e.g. a long prompt was sent).
+                return
             line = self.document.get_line(y)
 
             if (
